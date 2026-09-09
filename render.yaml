@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: biker-hire-predictor-group9
+    runtime: python
+    plan: free
+    buildCommand: pip install uv && uv sync
+    startCommand: uv run gunicorn app:server
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
