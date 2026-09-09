@@ -12,9 +12,20 @@ from data.open_meteo import open_meteo, open_meteo_history
 BIKES_URL = "https://raw.githubusercontent.com/kostis-christodoulou/am01-code-sep2026/main/data/london_bikes.csv"
 COEF_PATH = os.path.join(os.path.dirname(__file__), "data", "model_coefficients.csv")
 
-WEATHER_VARS = ["temp", "humidity", "precip", "windspeed", "cloudcover"]
+WEATHER_VARS = ["temp", "tempmax", "humidity", "precip", "windspeed", "cloudcover", "visibility", "solarenergy"]
 DAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 SEASON_ORDER = ["Winter", "Spring", "Summer", "Autumn"]
+DAY_TERM_PREFIX = "day_"
+SEASON_TERM_PREFIX = "season_"
+PRICE_TERM = "after_price_inc"
+
+# The model's after_price_inc dummy has no matching column anywhere in the
+# public dataset — it's a feature engineered for the model fit that never
+# made it into the CSV this app reads. Both prediction windows (the Jan
+# 2026 history week and the live forecast) fall after the entire 2010-2025
+# training range, so "after the increase" (=1) is the only sane constant
+# for both. See PRICE_TERM in predict().
+ASSUME_AFTER_PRICE_INCREASE = 1
 
 # Palette — a night ride through London: navy sky, sodium-lamp amber, wet-asphalt
 # teal. Shared between assets/style.css and the Plotly chart theme below so the
@@ -110,17 +121,32 @@ def load_coefficients():
 
 bikes_df = load_bikes()
 coefficients = load_coefficients()
-numeric_terms = [t for t in coefficients if t != "Intercept" and not t.startswith("day_")]
+numeric_terms = [
+    t
+    for t in coefficients
+    if t != "Intercept"
+    and not t.startswith(DAY_TERM_PREFIX)
+    and not t.startswith(SEASON_TERM_PREFIX)
+    and t != PRICE_TERM
+]
 seasons = [s for s in SEASON_ORDER if s in set(bikes_df.get("season_name", []))]
 
 
-def predict(weather_df):
+def predict(weather_df, after_price_inc=ASSUME_AFTER_PRICE_INCREASE):
+    """weather_df needs a numeric column per entry in numeric_terms, plus
+    day_of_week and (if the model has season_* terms) season_name. Terms
+    the loaded model doesn't have (e.g. an older coefficients file with no
+    season_/after_price_inc terms) contribute 0 automatically via
+    coefficients.get(..., 0.0), so this stays compatible with either model."""
     preds = []
     for _, row in weather_df.iterrows():
         total = coefficients.get("Intercept", 0.0)
         for term in numeric_terms:
             total += coefficients.get(term, 0.0) * row.get(term, 0.0)
-        total += coefficients.get(f"day_{row['day_of_week']}", 0.0)
+        total += coefficients.get(f"{DAY_TERM_PREFIX}{row['day_of_week']}", 0.0)
+        if "season_name" in row.index:
+            total += coefficients.get(f"{SEASON_TERM_PREFIX}{row['season_name']}", 0.0)
+        total += coefficients.get(PRICE_TERM, 0.0) * after_price_inc
         preds.append(max(total, 0.0))
     result = weather_df.copy()
     result["bikes_hired"] = preds
@@ -394,6 +420,10 @@ explore_tab = html.Div(
 
 predict_tab = html.Div(
     [
+        html.P(
+            "Both windows below assume current, post fare-increase pricing.",
+            className="predict-note",
+        ),
         html.Div(
             [
                 html.Div(
