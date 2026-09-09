@@ -1,0 +1,423 @@
+/* ============================================================
+   London Bikes Dashboard — theme
+   Mood: a night ride through London — deep navy sky, the warm
+   amber glow of sodium streetlamps, a cool wet-asphalt teal.
+   ============================================================ */
+
+:root {
+  --ink: #0a0f1e;
+  --ink-2: #0d1526;
+  --surface: #121b30;
+  --surface-soft: rgba(18, 27, 48, 0.55);
+  --surface-border: rgba(255, 255, 255, 0.08);
+  --grid: #24304a;
+  --text: #edf1f7;
+  --text-muted: #8b96ac;
+  --amber: #f2a649;
+  --amber-strong: #f7b85e;
+  --teal: #46c2b9;
+  --teal-strong: #63d6cc;
+  --danger: #e1573c;
+  --gradient: linear-gradient(135deg, var(--amber) 0%, var(--teal) 100%);
+
+  --radius-sm: 10px;
+  --radius-lg: 20px;
+
+  --shadow-depth: 0 20px 60px -24px rgba(2, 6, 16, 0.75), 0 2px 6px rgba(2, 6, 16, 0.4);
+  --shadow-hover: 0 30px 70px -20px rgba(2, 6, 16, 0.85), 0 0 46px -14px rgba(242, 166, 73, 0.4);
+
+  --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Inter", "Segoe UI", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background-image:
+    radial-gradient(560px 420px at 88% -8%, rgba(242, 166, 73, 0.16), transparent 60%),
+    radial-gradient(680px 520px at -10% 30%, rgba(70, 194, 185, 0.14), transparent 60%),
+    radial-gradient(900px 700px at 50% 120%, rgba(70, 194, 185, 0.08), transparent 60%);
+  background-attachment: fixed;
+}
+
+::selection {
+  background: rgba(242, 166, 73, 0.35);
+  color: var(--text);
+}
+
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 40px 24px 80px;
+}
+
+/* ---------- Hero ---------- */
+
+.hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  margin-bottom: 32px;
+}
+
+.hero-text {
+  max-width: 640px;
+}
+
+.hero-kicker {
+  margin: 0 0 10px;
+  color: var(--text-muted);
+  font-size: 15px;
+}
+
+.hero-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(2.4rem, 5vw, 3.4rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.hero-title {
+  background: var(--gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  perspective: 1400px;
+}
+
+.kpi-card {
+  background: var(--surface-soft);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  padding: 20px 22px;
+  box-shadow: var(--shadow-depth);
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.kpi-card:hover {
+  transform: translateY(-6px) rotateX(2deg);
+  box-shadow: var(--shadow-hover);
+  border-color: rgba(242, 166, 73, 0.3);
+}
+
+.kpi-value {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.9rem;
+  background: var(--gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-variant-numeric: tabular-nums;
+}
+
+.kpi-label {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 13.5px;
+}
+
+/* ---------- Tabs ---------- */
+
+.tabs-nav {
+  margin-bottom: 24px !important;
+}
+
+.tabs-track {
+  display: inline-flex !important;
+  gap: 6px;
+  padding: 6px;
+  background: var(--surface-soft);
+  border: 1px solid var(--surface-border);
+  border-radius: 999px;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.tab-pill {
+  border: none !important;
+  background: transparent !important;
+  color: var(--text-muted) !important;
+  font-family: var(--font-body) !important;
+  font-size: 14.5px !important;
+  padding: 9px 20px !important;
+  border-radius: 999px !important;
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.tab-pill:hover {
+  color: var(--text) !important;
+}
+
+.tab-pill--selected {
+  background: var(--gradient) !important;
+  color: var(--ink) !important;
+  font-weight: 600 !important;
+}
+
+/* ---------- Panels ---------- */
+
+.panel {
+  background: var(--surface-soft);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px 10px;
+  box-shadow: var(--shadow-depth);
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.panel:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-hover);
+  border-color: rgba(70, 194, 185, 0.28);
+}
+
+.panel-title {
+  margin: 0 0 2px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.15rem;
+}
+
+.panel-sub {
+  margin: 0 0 14px;
+  color: var(--text-muted);
+  font-size: 13.5px;
+}
+
+/* ---------- Explore layout ---------- */
+
+.explore-grid {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 20px;
+  align-items: start;
+  perspective: 1600px;
+}
+
+.chart-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.controls-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  position: sticky;
+  top: 24px;
+}
+
+.control-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.control-label {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 860px) {
+  .explore-grid {
+    grid-template-columns: 1fr;
+  }
+  .controls-panel {
+    position: static;
+  }
+  .kpi-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- Predict layout ---------- */
+
+.predict-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  perspective: 1600px;
+}
+
+@media (max-width: 860px) {
+  .predict-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.status-error {
+  color: var(--danger);
+  font-size: 13.5px;
+  margin-bottom: 10px;
+}
+
+/* ---------- Pill controls (RadioItems / Checklist) ----------
+   Dash renders each option as <label class="dash-options-list-option
+   [selected]"><span class="...-wrapper"><input/></span><span
+   class="...-text">label</span></label>, toggling `.selected` itself —
+   so pill state rides on Dash's own class, not a CSS-only checked hack. */
+
+.pill-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pill-group .dash-options-list-option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--surface-border);
+  background: rgba(255, 255, 255, 0.03) !important;
+  color: var(--text-muted) !important;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.pill-group .dash-options-list-option:not(.selected):not(:has(input[disabled])):hover,
+.pill-group .dash-options-list-option:not(.selected):not(:has(input[disabled])):focus-within {
+  border-color: rgba(242, 166, 73, 0.5);
+  color: var(--text) !important;
+}
+
+.pill-group .dash-options-list-option.selected {
+  background: var(--gradient) !important;
+  border-color: transparent;
+  color: var(--ink) !important;
+  font-weight: 600;
+}
+
+.pill-group .dash-options-list-option:has(:focus-visible) {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+/* Belt-and-braces: Dash's own base stylesheet carries a couple of rules on
+   these same classes (base text colour, a purple :focus-within colour) whose
+   specificity can tie with plain class selectors above. Scoping by the
+   controls' own ids guarantees our pill colours win outright. */
+#colour-by .dash-options-list-option.selected,
+#season-filter .dash-options-list-option.selected {
+  background: var(--gradient) !important;
+  color: var(--ink) !important;
+  border-color: transparent !important;
+}
+
+.pill-group .dash-options-list-option-wrapper {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+}
+
+/* ---------- Dropdown ----------
+   Dash's Dropdown is a <button class="dash-dropdown"> trigger; its open
+   menu is a portalled <div class="dash-options-list dash-dropdown-options">
+   of the same option markup as above, tagged .dash-dropdown-option. */
+
+.dash-dropdown-dark {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--ink-2);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-sm);
+  padding: 9px 14px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.dash-dropdown-dark:hover {
+  border-color: rgba(242, 166, 73, 0.5);
+}
+
+.dash-dropdown-dark[data-state="open"] {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px rgba(242, 166, 73, 0.18);
+}
+
+.dash-dropdown-dark .dash-dropdown-trigger-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.dash-dropdown-options {
+  background: var(--ink-2) !important;
+  border: 1px solid var(--surface-border) !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: var(--shadow-depth) !important;
+  padding: 4px !important;
+  overflow: hidden;
+}
+
+.dash-dropdown-option {
+  border-radius: 8px !important;
+  padding: 8px 10px !important;
+  color: var(--text-muted) !important;
+  cursor: pointer;
+}
+
+.dash-dropdown-option .dash-options-list-option-wrapper {
+  display: none;
+}
+
+.dash-dropdown-option:hover,
+.dash-dropdown-option.selected,
+.dash-dropdown-option:focus-within {
+  background: rgba(242, 166, 73, 0.14) !important;
+  color: var(--text) !important;
+}
+
+/* ---------- DataTable extras (base styling passed via Python props) ---------- */
+
+.dash-table-container .dash-spreadsheet-container {
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+/* ---------- Loading spinner tint ---------- */
+
+._dash-loading {
+  color: var(--text-muted) !important;
+}
