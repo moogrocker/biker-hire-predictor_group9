@@ -1,3 +1,4 @@
+import base64
 import os
 
 import pandas as pd
@@ -27,6 +28,69 @@ TEXT_MUTED = "#8b96ac"
 AMBER = "#f2a649"
 TEAL = "#46c2b9"
 CATEGORICAL = [AMBER, TEAL, "#e1573c", "#6c8eef"]
+
+# --- hand-built weather icons for the forecast strip -----------------------
+# Simple primitive shapes (circles/rects/lines), no icon library. Colours are
+# baked in — these ship as <img> data URIs, which don't inherit page CSS.
+
+
+def _svg_data_uri(svg):
+    return "data:image/svg+xml;base64," + base64.b64encode(svg.encode("utf-8")).decode("ascii")
+
+
+def _cloud_shapes(fill, y_offset=0):
+    return f"""
+      <circle cx="12" cy="{14 + y_offset}" r="6" fill="{fill}"/>
+      <circle cx="18" cy="{10 + y_offset}" r="7.5" fill="{fill}"/>
+      <circle cx="23" cy="{15 + y_offset}" r="5" fill="{fill}"/>
+      <rect x="7" y="{14 + y_offset}" width="20" height="8" rx="4" fill="{fill}"/>
+    """
+
+
+SUN_SVG = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <circle cx="16" cy="16" r="7" fill="{AMBER}"/>
+  <g stroke="{AMBER}" stroke-width="2" stroke-linecap="round">
+    <line x1="16" y1="2" x2="16" y2="6"/><line x1="16" y1="26" x2="16" y2="30"/>
+    <line x1="2" y1="16" x2="6" y2="16"/><line x1="26" y1="16" x2="30" y2="16"/>
+    <line x1="5.8" y1="5.8" x2="8.6" y2="8.6"/><line x1="23.4" y1="23.4" x2="26.2" y2="26.2"/>
+    <line x1="5.8" y1="26.2" x2="8.6" y2="23.4"/><line x1="23.4" y1="8.6" x2="26.2" y2="5.8"/>
+  </g>
+</svg>"""
+
+PARTLY_CLOUDY_SVG = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <circle cx="12" cy="11" r="5.5" fill="{AMBER}"/>
+  <g stroke="{AMBER}" stroke-width="1.8" stroke-linecap="round">
+    <line x1="12" y1="1" x2="12" y2="3.5"/>
+    <line x1="4.5" y1="5.5" x2="6.3" y2="7.3"/>
+    <line x1="3" y1="11" x2="5.5" y2="11"/>
+  </g>
+  <g>{_cloud_shapes(TEXT_MUTED, y_offset=6)}</g>
+</svg>"""
+
+CLOUDY_SVG = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">{_cloud_shapes(TEXT_MUTED)}</svg>"""
+
+RAIN_SVG = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  {_cloud_shapes(TEAL)}
+  <g stroke="{TEAL}" stroke-width="2" stroke-linecap="round">
+    <line x1="12" y1="25" x2="10.5" y2="29"/>
+    <line x1="18" y1="25" x2="16.5" y2="29"/>
+    <line x1="24" y1="25" x2="22.5" y2="29"/>
+  </g>
+</svg>"""
+
+
+def classify_weather(precip, cloudcover):
+    """Map forecast fields to a (label, icon svg) pair — no condition field
+    comes back from Open-Meteo, so this is derived from precip/cloudcover."""
+    precip = precip or 0
+    cloudcover = cloudcover if pd.notna(cloudcover) else 0
+    if precip >= 0.5:
+        return "Rain", RAIN_SVG
+    if cloudcover >= 70:
+        return "Cloudy", CLOUDY_SVG
+    if cloudcover >= 30:
+        return "Partly cloudy", PARTLY_CLOUDY_SVG
+    return "Clear", SUN_SVG
 
 
 def load_bikes():
@@ -112,6 +176,60 @@ def style_fig(fig, height=420):
     fig.update_xaxes(gridcolor=GRID, zerolinecolor=GRID, linecolor=GRID, color=TEXT_MUTED)
     fig.update_yaxes(gridcolor=GRID, zerolinecolor=GRID, linecolor=GRID, color=TEXT_MUTED)
     return fig
+
+
+def build_sparkline(values, width=320, height=32):
+    """A thin trend line under the forecast strip — folds the demand trend
+    into the strip itself instead of a separate chart below it."""
+    n = len(values)
+    vmin, vmax = min(values), max(values)
+    span = (vmax - vmin) or 1
+    xs = [width * i / (n - 1) for i in range(n)] if n > 1 else [width / 2]
+    ys = [height - 5 - (v - vmin) / span * (height - 10) for v in values]
+    points = " ".join(f"{x:.1f},{y:.1f}" for x, y in zip(xs, ys))
+    dots = "".join(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="2.6" fill="{AMBER}"/>' for x, y in zip(xs, ys))
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}">
+      <polyline points="{points}" fill="none" stroke="{TEAL}" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+      {dots}
+    </svg>"""
+    return html.Img(
+        src=_svg_data_uri(svg),
+        alt="Predicted bike-hire trend across the five days",
+        className="forecast-sparkline",
+    )
+
+
+def build_forecast_strip(pred_df):
+    """One glass strip with a column per day, divided by hairlines, rather
+    than five separate cards — the days are a real sequence, so a single
+    connected strip (with a trend line threaded underneath) reads as one
+    forecast rather than a repeated card kit."""
+    rows = pred_df.reset_index(drop=True)
+    peak_idx = rows["bikes_hired"].idxmax()
+    columns = []
+    for i, row in rows.iterrows():
+        condition, icon_svg = classify_weather(row.get("precip"), row.get("cloudcover"))
+        is_peak = i == peak_idx
+        bikes_class = "forecast-bikes forecast-bikes--peak" if is_peak else "forecast-bikes"
+        children = [
+            html.Span(row["day_of_week"], className="forecast-day"),
+            html.Span(pd.to_datetime(row["date"]).strftime("%-d %b"), className="forecast-date"),
+            html.Img(src=_svg_data_uri(icon_svg), alt=condition, className="forecast-icon"),
+            html.Span(condition, className="forecast-condition"),
+            html.Span(f"{row['temp']:.0f}°C", className="forecast-temp"),
+            html.Span(f"{row['bikes_hired']:,.0f}", className=bikes_class),
+        ]
+        if is_peak:
+            children.append(html.Span("busiest day", className="forecast-peak-label"))
+        columns.append(html.Div(children, className="forecast-col"))
+    return html.Div(
+        [
+            html.Div(columns, className="forecast-cols"),
+            build_sparkline(rows["bikes_hired"].tolist()),
+        ],
+        className="forecast-strip",
+    )
 
 
 TABLE_STYLE = dict(
@@ -293,8 +411,7 @@ predict_tab = html.Div(
                         html.H3("Next five days", className="panel-title"),
                         html.P("Live forecast from Open-Meteo", className="panel-sub"),
                         html.Div(id="forecast-status"),
-                        dash_table.DataTable(id="forecast-table", page_size=5, **TABLE_STYLE),
-                        dcc.Graph(id="forecast-bar", config={"displaylogo": False}),
+                        html.Div(id="forecast-strip"),
                     ],
                     className="panel predict-panel",
                 ),
@@ -382,55 +499,46 @@ def update_day_bar(seasons_selected):
     Output("history-table", "columns"),
     Output("history-bar", "figure"),
     Output("forecast-status", "children"),
-    Output("forecast-table", "data"),
-    Output("forecast-table", "columns"),
-    Output("forecast-bar", "figure"),
+    Output("forecast-strip", "children"),
     Input("tabs", "value"),
 )
 def update_predictions(tab):
     placeholder_fig = empty_message_fig("No data available")
     if tab != "predict":
-        return "", [], [], placeholder_fig, "", [], [], placeholder_fig
+        return "", [], [], placeholder_fig, "", []
 
     history, history_err, forecast, forecast_err = fetch_weather_frames()
 
-    def build_outputs(df, err, title):
-        if err is not None or df is None:
-            status = html.Div(f"Could not load weather data: {err}", className="status-error")
-            return status, [], [], placeholder_fig
-        pred_df = predict(df)
-        display_df = pred_df.copy()
+    if history_err is not None or history is None:
+        history_status = html.Div(f"Could not load weather data: {history_err}", className="status-error")
+        history_data, history_cols, history_fig = [], [], placeholder_fig
+    else:
+        pred_history = predict(history)
+        display_df = pred_history.copy()
         display_df["date"] = display_df["date"].astype(str)
         display_df["bikes_hired"] = display_df["bikes_hired"].round(0)
-        columns = [{"name": c, "id": c} for c in display_df.columns]
         fig = px.bar(
-            pred_df,
+            pred_history,
             x="date",
             y="bikes_hired",
-            title=title,
+            title="Predicted bikes hired",
             color="bikes_hired",
             color_continuous_scale=[TEAL, AMBER],
         )
         fig.update_traces(marker_line_width=0)
-        return "", display_df.to_dict("records"), columns, style_fig(fig, height=320)
+        history_status = ""
+        history_data = display_df.to_dict("records")
+        history_cols = [{"name": c, "id": c} for c in display_df.columns]
+        history_fig = style_fig(fig, height=320)
 
-    history_status, history_data, history_cols, history_fig = build_outputs(
-        history, history_err, "Predicted bikes hired"
-    )
-    forecast_status, forecast_data, forecast_cols, forecast_fig = build_outputs(
-        forecast, forecast_err, "Predicted bikes hired"
-    )
+    if forecast_err is not None or forecast is None:
+        forecast_status = html.Div(f"Could not load weather data: {forecast_err}", className="status-error")
+        forecast_children = []
+    else:
+        forecast_status = ""
+        forecast_children = build_forecast_strip(predict(forecast))
 
-    return (
-        history_status,
-        history_data,
-        history_cols,
-        history_fig,
-        forecast_status,
-        forecast_data,
-        forecast_cols,
-        forecast_fig,
-    )
+    return history_status, history_data, history_cols, history_fig, forecast_status, forecast_children
 
 
 if __name__ == "__main__":
