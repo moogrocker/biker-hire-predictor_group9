@@ -5,7 +5,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import requests
-from dash import Dash, Input, Output, dash_table, dcc, html
+from dash import Dash, Input, Output, dcc, html
 
 from data.open_meteo import open_meteo, open_meteo_history
 
@@ -204,33 +204,12 @@ def style_fig(fig, height=420):
     return fig
 
 
-def build_sparkline(values, width=320, height=32):
-    """A thin trend line under the forecast strip — folds the demand trend
-    into the strip itself instead of a separate chart below it."""
-    n = len(values)
-    vmin, vmax = min(values), max(values)
-    span = (vmax - vmin) or 1
-    xs = [width * i / (n - 1) for i in range(n)] if n > 1 else [width / 2]
-    ys = [height - 5 - (v - vmin) / span * (height - 10) for v in values]
-    points = " ".join(f"{x:.1f},{y:.1f}" for x, y in zip(xs, ys))
-    dots = "".join(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="2.6" fill="{AMBER}"/>' for x, y in zip(xs, ys))
-    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}">
-      <polyline points="{points}" fill="none" stroke="{TEAL}" stroke-width="2"
-        stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
-      {dots}
-    </svg>"""
-    return html.Img(
-        src=_svg_data_uri(svg),
-        alt="Predicted bike-hire trend across the five days",
-        className="forecast-sparkline",
-    )
-
-
-def build_forecast_strip(pred_df):
-    """One glass strip with a column per day, divided by hairlines, rather
-    than five separate cards — the days are a real sequence, so a single
-    connected strip (with a trend line threaded underneath) reads as one
-    forecast rather than a repeated card kit."""
+def build_prediction_panel(pred_df):
+    """Card strip (day/icon/temp/predicted hires) plus a bar chart of the
+    same predictions ticked by day of week. Shared by both predict-tab
+    panels (the live forecast and the January history week) so they use
+    one design rather than two — a hairline-divided strip of columns,
+    since the days are a real sequence, not five/seven repeated cards."""
     rows = pred_df.reset_index(drop=True)
     peak_idx = rows["bikes_hired"].idxmax()
     columns = []
@@ -249,37 +228,27 @@ def build_forecast_strip(pred_df):
         if is_peak:
             children.append(html.Span("busiest day", className="forecast-peak-label"))
         columns.append(html.Div(children, className="forecast-col"))
+
+    fig = px.bar(
+        rows,
+        x="day_of_week",
+        y="bikes_hired",
+        category_orders={"day_of_week": rows["day_of_week"].tolist()},
+        color="bikes_hired",
+        color_continuous_scale=[TEAL, AMBER],
+        labels={"day_of_week": "Day of week", "bikes_hired": "Predicted bikes hired"},
+        title="Predicted bikes hired",
+    )
+    fig.update_traces(marker_line_width=0)
+
     return html.Div(
         [
             html.Div(columns, className="forecast-cols"),
-            build_sparkline(rows["bikes_hired"].tolist()),
+            dcc.Graph(figure=style_fig(fig, height=280), config={"displaylogo": False}),
         ],
         className="forecast-strip",
     )
 
-
-TABLE_STYLE = dict(
-    style_table={"overflowX": "auto"},
-    style_header={
-        "backgroundColor": SURFACE,
-        "color": TEXT,
-        "fontFamily": "Space Grotesk, sans-serif",
-        "fontWeight": "600",
-        "border": "none",
-        "borderBottom": f"1px solid {GRID}",
-    },
-    style_cell={
-        "backgroundColor": "transparent",
-        "color": TEXT_MUTED,
-        "fontFamily": "Inter, sans-serif",
-        "fontSize": "13.5px",
-        "border": "none",
-        "borderBottom": f"1px solid {GRID}",
-        "padding": "10px 14px",
-    },
-    style_data={"backgroundColor": "transparent"},
-    style_as_list_view=True,
-)
 
 app = Dash(__name__)
 server = app.server
@@ -431,8 +400,7 @@ predict_tab = html.Div(
                         html.H3("First week of January 2026", className="panel-title"),
                         html.P("Historical weather, same model", className="panel-sub"),
                         html.Div(id="history-status"),
-                        dash_table.DataTable(id="history-table", page_size=7, **TABLE_STYLE),
-                        dcc.Graph(id="history-bar", config={"displaylogo": False}),
+                        html.Div(id="history-strip"),
                     ],
                     className="panel predict-panel",
                 ),
@@ -525,50 +493,32 @@ def update_day_bar(seasons_selected):
 
 @app.callback(
     Output("history-status", "children"),
-    Output("history-table", "data"),
-    Output("history-table", "columns"),
-    Output("history-bar", "figure"),
+    Output("history-strip", "children"),
     Output("forecast-status", "children"),
     Output("forecast-strip", "children"),
     Input("tabs", "value"),
 )
 def update_predictions(tab):
-    placeholder_fig = empty_message_fig("No data available")
     if tab != "predict":
-        return "", [], [], placeholder_fig, "", []
+        return "", [], "", []
 
     history, history_err, forecast, forecast_err = fetch_weather_frames()
 
     if history_err is not None or history is None:
         history_status = html.Div(f"Could not load weather data: {history_err}", className="status-error")
-        history_data, history_cols, history_fig = [], [], placeholder_fig
+        history_children = []
     else:
-        pred_history = predict(history)
-        display_df = pred_history.copy()
-        display_df["date"] = display_df["date"].astype(str)
-        display_df["bikes_hired"] = display_df["bikes_hired"].round(0)
-        fig = px.bar(
-            pred_history,
-            x="date",
-            y="bikes_hired",
-            title="Predicted bikes hired",
-            color="bikes_hired",
-            color_continuous_scale=[TEAL, AMBER],
-        )
-        fig.update_traces(marker_line_width=0)
         history_status = ""
-        history_data = display_df.to_dict("records")
-        history_cols = [{"name": c, "id": c} for c in display_df.columns]
-        history_fig = style_fig(fig, height=320)
+        history_children = build_prediction_panel(predict(history))
 
     if forecast_err is not None or forecast is None:
         forecast_status = html.Div(f"Could not load weather data: {forecast_err}", className="status-error")
         forecast_children = []
     else:
         forecast_status = ""
-        forecast_children = build_forecast_strip(predict(forecast))
+        forecast_children = build_prediction_panel(predict(forecast))
 
-    return history_status, history_data, history_cols, history_fig, forecast_status, forecast_children
+    return history_status, history_children, forecast_status, forecast_children
 
 
 if __name__ == "__main__":

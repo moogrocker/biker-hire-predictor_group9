@@ -498,13 +498,6 @@ body {
   margin-top: 3px;
 }
 
-.forecast-sparkline {
-  display: block;
-  width: 100%;
-  height: 30px;
-  margin-top: 4px;
-}
-
 @media (max-width: 640px) {
   .forecast-col {
     flex: 1 1 33%;
